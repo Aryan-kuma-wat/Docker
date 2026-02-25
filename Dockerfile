@@ -20,9 +20,11 @@ LABEL version="1.0.0"
 LABEL description="SysInfo Dashboard - Dockerized Flask App"
 
 # Set environment variables
+# PORT is injected by Render at runtime — default 5000 for local Docker use
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    CONTAINER_ENV="Docker Container"
+    CONTAINER_ENV="Docker Container" \
+    PORT=5000
 
 WORKDIR /app
 
@@ -37,12 +39,12 @@ COPY templates/ templates/
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 USER appuser
 
-# Expose the application port
-EXPOSE 5000
+# Expose port (informational — Render overrides this via $PORT env var)
+EXPOSE $PORT
 
-# Health check (best practice)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"
+# Health check — uses $PORT dynamically
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request, os; urllib.request.urlopen('http://localhost:' + os.environ.get('PORT','5000') + '/health')"
 
-# Use Gunicorn as production WSGI server
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "60", "app:app"]
+# Start Gunicorn — binds to 0.0.0.0:$PORT (Render sets $PORT automatically)
+CMD gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 60 app:app
