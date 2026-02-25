@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SysInfo Dashboard | Docker Project</title>
+    <meta name="description"
+        content="Live system information dashboard running inside a Docker container. Displays CPU, RAM, Disk, OS and container details." />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #090c10;
+            --bg2: #0d1117;
+            --surface: #161b22;
+            --border: #21262d;
+            --blue: #58a6ff;
+            --green: #3fb950;
+            --purple: #a371f7;
+            --orange: #ffa657;
+            --text: #f0f6fc;
+            --text-sec: #c9d1d9;
+            --muted: #7d8590;
+            --radius: 14px;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+
+        /* ─── HERO ─── */
+        .hero {
+            position: relative;
+            overflow: hidden;
+            padding: 4rem 1.5rem 3.25rem;
+            text-align: center;
+            background: var(--bg2);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 70% 60% at 15% 50%, rgba(88, 166, 255, 0.07) 0%, transparent 70%),
+                radial-gradient(ellipse 55% 50% at 85% 25%, rgba(163, 113, 247, 0.07) 0%, transparent 70%),
+                radial-gradient(ellipse 45% 70% at 55% 85%, rgba(63, 185, 80, 0.05) 0%, transparent 70%);
+            animation: glow-shift 10s ease-in-out infinite alternate;
+            pointer-events: none;
+        }
+
+        @keyframes glow-shift {
+            0% {
+                opacity: .7;
+                transform: scale(1);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1.06);
+            }
+        }
+
+        .hero>* {
+            position: relative;
+            z-index: 1;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            background: rgba(63, 185, 80, 0.1);
+            border: 1px solid rgba(63, 185, 80, 0.28);
+            color: var(--green);
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.13em;
+            text-transform: uppercase;
+            padding: 0.3rem 0.9rem;
+            border-radius: 99px;
+            margin-bottom: 1.4rem;
+        }
+
+        .badge-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--green);
+            border-radius: 50%;
+            animation: dot-pulse 2.2s ease-in-out infinite;
+        }
+
+        @keyframes dot-pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: .4;
+                transform: scale(0.65);
+            }
+        }
+
+        h1 {
+            font-size: clamp(2rem, 5vw, 3.4rem);
+            font-weight: 800;
+            letter-spacing: -0.035em;
+            background: linear-gradient(135deg, #f0f6fc 20%, var(--blue) 60%, var(--purple) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.65rem;
+            line-height: 1.1;
+        }
+
+        .hero-desc {
+            color: var(--muted);
+            font-size: 0.95rem;
+            max-width: 500px;
+            margin: 0 auto 1.75rem;
+            line-height: 1.7;
+        }
+
+        .hero-meta {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.25rem;
+            flex-wrap: wrap;
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .meta-chip .ico {
+            color: var(--blue);
+            font-style: normal;
+        }
+
+        /* Demo notice banner */
+        .demo-notice {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 166, 87, 0.08);
+            border: 1px solid rgba(255, 166, 87, 0.25);
+            color: var(--orange);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            border-radius: 99px;
+            padding: 0.28rem 0.85rem;
+        }
+
+        /* ─── MAIN ─── */
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2.5rem 1.25rem 5rem;
+        }
+
+        .section-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: var(--muted);
+            margin-bottom: 1.1rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.2rem;
+        }
+
+        /* ─── CARDS ─── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease;
+            opacity: 0;
+            animation: fadeUp .5s ease forwards;
+        }
+
+        .card:nth-child(1) {
+            animation-delay: .06s;
+        }
+
+        .card:nth-child(2) {
+            animation-delay: .12s;
+        }
+
+        .card:nth-child(3) {
+            animation-delay: .18s;
+        }
+
+        .card:nth-child(4) {
+            animation-delay: .24s;
+        }
+
+        .card:nth-child(5) {
+            animation-delay: .30s;
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(18px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(88, 166, 255, 0.35);
+            box-shadow: 0 14px 45px rgba(88, 166, 255, 0.07), 0 3px 10px rgba(0, 0, 0, 0.35);
+        }
+
+        .card-head {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            margin-bottom: 1.25rem;
+            padding-bottom: 0.9rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .icon-wrap {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .ib {
+            background: rgba(88, 166, 255, 0.1);
+        }
+
+        .ig {
+            background: rgba(63, 185, 80, 0.1);
+        }
+
+        .ip {
+            background: rgba(163, 113, 247, 0.1);
+        }
+
+        .io {
+            background: rgba(255, 166, 87, 0.1);
+        }
+
+        .it {
+            background: rgba(56, 211, 203, 0.1);
+        }
+
+        .card-title {
+            font-size: .83rem;
+            font-weight: 600;
+            color: var(--text-sec);
+        }
+
+        .card-subtitle {
+            font-size: .69rem;
+            color: var(--muted);
+            margin-top: .1rem;
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: .48rem 0;
+            border-bottom: 1px solid rgba(33, 38, 45, .7);
+        }
+
+        .row:last-of-type {
+            border-bottom: none;
+        }
+
+        .row-label {
+            font-size: .78rem;
+            color: var(--muted);
+        }
+
+        .row-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .78rem;
+            color: var(--text);
+            font-weight: 500;
+            text-align: right;
+        }
+
+        .row-val.bl {
+            color: var(--blue);
+        }
+
+        .row-val.gr {
+            color: var(--green);
+        }
+
+        .row-val.pu {
+            color: var(--purple);
+        }
+
+        .row-val.or {
+            color: var(--orange);
+        }
+
+        .prog-wrap {
+            margin-top: 1.1rem;
+        }
+
+        .prog-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: .45rem;
+        }
+
+        .prog-lbl {
+            font-size: .72rem;
+            color: var(--muted);
+        }
+
+        .prog-pct {
+            font-size: .72rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+        }
+
+        .prog-bar {
+            height: 7px;
+            background: var(--border);
+            border-radius: 99px;
+            overflow: hidden;
+        }
+
+        .prog-fill {
+            height: 100%;
+            border-radius: 99px;
+            width: 0%;
+            transition: width 1.3s cubic-bezier(.4, 0, .2, 1);
+        }
+
+        .pb {
+            background: linear-gradient(90deg, #1f6feb, var(--blue));
+        }
+
+        .pg {
+            background: linear-gradient(90deg, #238636, var(--green));
+        }
+
+        .pp {
+            background: linear-gradient(90deg, #6e40c9, var(--purple));
+        }
+
+        /* ─── FOOTER ─── */
+        footer {
+            background: var(--bg2);
+            border-top: 1px solid var(--border);
+            padding: 1.75rem 1.25rem;
+        }
+
+        .footer-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .pills {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            flex-wrap: wrap;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: .3rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 99px;
+            padding: .22rem .65rem;
+            font-size: .68rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-sec);
+            transition: border-color .2s, color .2s;
+        }
+
+        .pill:hover {
+            border-color: var(--blue);
+            color: var(--blue);
+        }
+
+        .footer-author {
+            font-size: .77rem;
+            color: var(--muted);
+        }
+
+        .footer-author strong {
+            color: var(--blue);
+            font-weight: 600;
+        }
+
+        /* ─── RESPONSIVE ─── */
+        @media (max-width: 620px) {
+            .hero {
+                padding: 2.75rem 1rem 2.25rem;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-inner {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .pills {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ═══════════ HERO ═══════════ -->
+    <header class="hero">
+        <div class="badge">
+            <span class="badge-dot"></span>
+            Running in Docker
+        </div>
+
+        <h1>SysInfo Dashboard</h1>
+
+        <p class="hero-desc">
+            Live system information from inside a running Docker container —
+            CPU, Memory, Disk, and OS details updated in real time.
+        </p>
+
+        <div class="hero-meta">
+            <span class="meta-chip">
+                <i class="ico">⚙</i>
+                a1b2c3d4e5f6
+            </span>
+            <span class="meta-chip">
+                <i class="ico">◈</i>
+                Linux · x86_64
+            </span>
+            <span class="meta-chip">
+                <i class="ico">⏱</i>
+                2026-02-26 00:00:00 UTC
+            </span>
+            <span class="demo-notice">
+                ⚠ Static demo — run locally with Docker for live data
+            </span>
+        </div>
+    </header>
+
+    <!-- ═══════════ MAIN ═══════════ -->
+    <main>
+        <p class="section-label">System Overview — Demo Values</p>
+
+        <div class="grid">
+
+            <!-- Container Info -->
+            <div class="card">
+                <div class="card-head">
+                    <div class="icon-wrap ib">🐳</div>
+                    <div>
+                        <div class="card-title">Container Info</div>
+                        <div class="card-subtitle">Docker runtime details</div>
+                    </div>
+                </div>
+                <div class="row">
+                    <span class="row-label">Environment</span>
+                    <span class="row-val gr">Docker Container</span>
+                </div>
+                <div class="row">
+                    <span class="row-label">Hostname</span>
+                    <span class="row-val bl">a1b2c3d4e5f6</span>
+                </div>
+                <div class="row">
+                    <span class="row-label">IP Address</span>
+                    <span class="row-val">172.17.0.2</span>
+                </div>
+                <div class="row">
+                    <span class="row-label">App Version</span>
+                    <span class="row-val gr">v1.0.0</span>
+                </div>
+                <div class="row">
+                    <span class="row-label">Boot Time</span>
+                    <span class="row-val">2026-02-26 00:00:00</span>
+                </div>
+            </div>
+
+            <!-- OS & Runtime -->
+            <div class="card">
+                <div class="card-head">
+                    <div class="icon-wrap ip">🖥️</div>
+                    <div>
+                        <div class="card-title">OS &amp; Runtime</div>
+                        <div class="card-subtitle">Operating system &amp; Python</div>
+                    </div>
+                </div>
+                <div class="row">
+                    <span class="row-label">OS</span>
+                    <span class="row-val pu">Linux</span>
+                </div>
+                <div class="row">
+                    <span class="row-label">Architecture</span>
+                    <span class="row-val">x86_64</span>
+                </div>
+                <div class="row">
+                    <span class="row-label">Python</span>
+                    <span class="row-val gr">3.11.x</span>
+                </div>
+                <div class="row">
+                    <span class="row-label">OS Version</span>
+                    <span class="row-val"
+                        style="font-size:.68rem; max-width:190px; text-align:right; word-break:break-word;">
+                        Debian GNU/Linux 12 (bookworm)
+                    </span>
+                </div>
+            </div>
+
+            <!-- CPU -->
+            <div class="card">
+                <div class="card-head">
+                    <div class="icon-wrap io">⚡</div>
+                    <div>
+                        <div class="card-title">CPU</div>
+                        <div class="card-subtitle">Processor utilization</div>
+                    </div>
+                </div>
+                <div class="row">
+                    <span class="row-label">Logical Cores</span>
+                    <span class="row-val bl">4</span>
+                </div>
+                <div class="row">
+                    <span class="row-label">Current Usage</span>
+                    <span class="row-val or">23.5%</span>
+                </div>
+                <div class="prog-wrap">
+                    <div class="prog-header">
+                        <span class="prog-lbl">CPU Load</span>
+                        <span class="prog-pct or">23.5%</span>
+                    </div>
+                    <div class="prog-bar">
+                        <div class="prog-fill pb" data-target="23.5"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Memory -->
+            <div class="card">
+                <div class="card-head">
+                    <div class="icon-wrap ig">🧠</div>
+                    <div>
+                        <div class="card-title">Memory (RAM)</div>
+                        <div class="card-subtitle">Virtual memory usage</div>
+                    </div>
+                </div>
+                <div class="row">
+                    <span class="row-label">Total RAM</span>
+                    <span class="row-val">8.00 GB</span>
+                </div>
+                <div class="row">
+                    <span class="row-label">Used RAM</span>
+                    <span class="row-val or">3.12 GB</span>
+                </div>
+                <div class="row">
+                    <span class="row-label">Available</span>
+                    <span class="row-val gr">4.88 GB</span>
+                </div>
+                <div class="prog-wrap">
+                    <div class="prog-header">
+                        <span class="prog-lbl">Memory Usage</span>
+                        <span class="prog-pct or">39.0%</span>
+                    </div>
+                    <div class="prog-bar">
+                        <div class="prog-fill pp" data-target="39"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Disk -->
+            <div class="card">
+                <div class="card-head">
+                    <div class="icon-wrap it">💾</div>
+                    <div>
+                        <div class="card-title">Disk Storage</div>
+                        <div class="card-subtitle">Root filesystem</div>
+                    </div>
+                </div>
+                <div class="row">
+                    <span class="row-label">Total Disk</span>
+                    <span class="row-val">30.00 GB</span>
+                </div>
+                <div class="row">
+                    <span class="row-label">Used Disk</span>
+                    <span class="row-val or">8.40 GB</span>
+                </div>
+                <div class="row">
+                    <span class="row-label">Free Disk</span>
+                    <span class="row-val gr">21.60 GB</span>
+                </div>
+                <div class="prog-wrap">
+                    <div class="prog-header">
+                        <span class="prog-lbl">Disk Usage</span>
+                        <span class="prog-pct or">28.0%</span>
+                    </div>
+                    <div class="prog-bar">
+                        <div class="prog-fill pg" data-target="28"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /grid -->
+    </main>
+
+    <!-- ═══════════ FOOTER ═══════════ -->
+    <footer>
+        <div class="footer-inner">
+            <div class="pills">
+                <span class="pill">🐍 Python 3.11</span>
+                <span class="pill">🌶️ Flask 3.0.3</span>
+                <span class="pill">🦄 Gunicorn 22.0.0</span>
+                <span class="pill">🐳 Docker · Multi-stage build</span>
+            </div>
+            <div class="footer-author">
+                Academic Project · Built by <strong>Aryan</strong> · 2026
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        /* Animate progress bars on load */
+        window.addEventListener('load', () => {
+            document.querySelectorAll('.prog-fill').forEach(bar => {
+                const target = Math.min(parseFloat(bar.dataset.target) || 0, 100);
+                requestAnimationFrame(() => setTimeout(() => { bar.style.width = target + '%'; }, 80));
+            });
+        });
+    </script>
+
+</body>
+
+</html>
