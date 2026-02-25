@@ -10,6 +10,8 @@ import socket
 import os
 import datetime
 import psutil
+import flask as flask_module
+import gunicorn
 
 app = Flask(__name__)
 
@@ -23,7 +25,7 @@ def get_system_info():
     return {
         "app_name": "SysInfo Dashboard",
         "version": "1.0.0",
-        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
         "hostname": socket.gethostname(),
         "ip_address": socket.gethostbyname(socket.gethostname()),
         "os_name": platform.system(),
@@ -34,12 +36,16 @@ def get_system_info():
         "cpu_usage": f"{cpu_percent:.1f}%",
         "total_ram": f"{mem.total / (1024**3):.2f} GB",
         "used_ram": f"{mem.used / (1024**3):.2f} GB",
+        "free_ram": f"{mem.available / (1024**3):.2f} GB",
         "ram_usage": f"{mem.percent:.1f}%",
         "total_disk": f"{disk.total / (1024**3):.2f} GB",
         "used_disk": f"{disk.used / (1024**3):.2f} GB",
+        "free_disk": f"{disk.free / (1024**3):.2f} GB",
         "disk_usage": f"{disk.percent:.1f}%",
         "container_env": os.environ.get("CONTAINER_ENV", "Docker Container"),
         "boot_time": boot_time.strftime("%Y-%m-%d %H:%M:%S"),
+        "flask_version": flask_module.__version__,
+        "gunicorn_version": gunicorn.__version__,
     }
 
 @app.route("/")

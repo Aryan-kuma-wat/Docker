@@ -22,8 +22,7 @@ LABEL description="SysInfo Dashboard - Dockerized Flask App"
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    CONTAINER_ENV="Docker Container" \
-    FLASK_ENV=production
+    CONTAINER_ENV="Docker Container"
 
 WORKDIR /app
 
